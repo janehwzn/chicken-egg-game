@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>小鸡下蛋 · 第一关</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffe9a8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#bfe8ff;font-family:"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;}
+  #cv{position:fixed;inset:0;display:block;}
+  .pill{background:rgba(255,255,255,.88);border-radius:999px;padding:8px 14px;font-size:17px;font-weight:700;color:#5d4037;box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  #hud{position:fixed;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;z-index:5;}
+  #warn{position:fixed;top:calc(64px + env(safe-area-inset-top));left:0;right:0;text-align:center;z-index:6;pointer-events:none;opacity:0;transition:opacity .3s;}
+  #warn.show{opacity:1;}
+  #warn span{display:inline-block;background:rgba(239,83,80,.94);color:#fff;font-weight:700;font-size:17px;padding:10px 20px;border-radius:999px;box-shadow:0 3px 10px rgba(0,0,0,.2);animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  #tip{position:fixed;bottom:calc(118px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;z-index:6;pointer-events:none;opacity:0;transition:opacity .3s;}
+  #tip.show{opacity:1;}
+  #tip span{display:inline-block;background:rgba(0,0,0,.62);color:#fff;font-size:15px;padding:8px 18px;border-radius:999px;}
+  #controls{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;gap:18px;z-index:7;}
+  #controls button{width:74px;height:74px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.85);font-size:30px;box-shadow:0 3px 10px rgba(0,0,0,.18);color:#5d4037;}
+  #controls button:active{transform:scale(.92);background:#ffe9a8;}
+  .overlay{position:fixed;inset:0;background:rgba(255,248,225,.96);z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;}
+  .overlay h1{font-size:34px;color:#e65100;margin:10px 0;}
+  .overlay p{font-size:17px;color:#5d4037;line-height:1.7;margin:6px 0;max-width:340px;}
+  .overlay .big{font-size:64px;}
+  .btn{margin-top:18px;background:#ff9800;color:#fff;border:none;font-size:22px;font-weight:700;padding:14px 52px;border-radius:999px;box-shadow:0 4px 12px rgba(255,152,0,.5);}
+  .btn:active{transform:scale(.95);}
+  .rule{background:#fff;border-radius:16px;padding:12px 18px;margin:8px 0;font-size:15px;color:#5d4037;text-align:left;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:360px;line-height:1.8;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div class="pill" id="hEgg">🥚 0/10</div>
+  <div class="pill" id="hTime">⏱ 0:00</div>
+  <div class="pill" id="hThief">🥷 --</div>
+  <div class="pill" id="hWorm">⭐ 0</div>
+</div>
+<div id="warn"><span id="warnTxt"></span></div>
+<div id="tip"><span id="tipTxt"></span></div>
+
+<div id="controls">
+  <button id="bL">◀</button>
+  <button id="bR">▶</button>
+  <button id="bJ">⤒</button>
+  <button id="bE">🥚</button>
+</div>
+
+<div class="overlay" id="startOv">
+  <div class="big">🐔</div>
+  <h1>小鸡下蛋 · 第一关</h1>
+  <div class="rule">
+    🥚 到鸡窝边按 <b>⬇ / 🥚</b> 下蛋，下满 <b>10 个</b> 蛋<br>
+    🥷 1 分钟后会有 <b>2 个小偷</b> 来偷蛋<br>
+    👀 小偷在窝边待 <b>10 秒</b> 就能偷走一个蛋<br>
+    🏃 快跑回去 <b>吓跑小偷</b>，护住你的蛋！<br>
+    🐛 跳起来吃小虫子加分<br>
+    🏠 蛋下满了就 <b>回小屋</b> 过关！
+  </div>
+  <p>◀ ▶ 移动 · ⤒ 跳 · ⬇/🥚 下蛋<br>（也可以在屏幕上滑动）</p>
+  <button class="btn" id="startBtn">开始游戏</button>
+</div>
+
+<div class="overlay" id="winOv" style="display:none;">
+  <div class="big">🎉</div>
+  <h1>第一关通过！</h1>
+  <p id="winStats"></p>
+  <p style="font-size:14px;color:#8d6e63;">继续加油：累计下满 100 个蛋<br>就可以跳过第五关啦！</p>
+  <button class="btn" id="againBtn">再来一局</button>
+</div>
+
+<script>
+'use strict';
+/* ================= 基础 ================= */
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W=0,H=0,GY=0,nestX=110,houseX=300,treeX=200;
+function layout(){
+  nestX=Math.max(100,W*0.15);
+  houseX=W-Math.max(110,W*0.17);
+  treeX=houseX-130;
+}
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;GY=H-175;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  layout();
+}
+window.addEventListener('resize',resize);
+
+/* ================= 音效 ================= */
+let AC=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,when){
+  try{
+    const a=ac();if(!a)return;
+    const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+(when||0);
+    o.type=type||'sine';o.frequency.value=f;
+    g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);
+    o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);
+  }catch(e){}
+}
+const sfxJump=()=>tone(320,0.12,'square',0.06);
+const sfxLay=()=>{tone(520,0.1,'sine',0.14);tone(720,0.12,'sine',0.14,0.08);};
+const sfxAlarm=()=>{for(let i=0;i<3;i++)tone(200,0.16,'sawtooth',0.1,i*0.22);};
+const sfxEat=()=>{tone(620,0.08,'sine',0.14);tone(920,0.1,'sine',0.14,0.07);};
+const sfxWin=()=>{[523,659,784,1047,1319].forEach((f,i)=>tone(f,0.2,'triangle',0.14,i*0.14));};
+document.addEventListener('pointerdown',()=>{const a=ac();if(a&&a.resume)a.resume();});
+
+/* ================= 状态 ================= */
+const WIN_EGGS=10,STEAL_TIME=10,SCARE_R=100;
+let G=null,totalLaid=0;
+function reset(){
+  G={phase:'play',time:0,eggs:[],laid:0,stolen:0,wormsEaten:0,
+    thieves:[],wormItems:[],
+    layCd:0,thiefAt:[60,74],thiefGap:30,wormAt:[50],wormGap:40,
+    ch:{x:W*0.5,y:0,vy:0,face:1,squat:0,walk:0,moving:false},
+    clouds:[{x:W*0.25,y:80,s:1.1,v:9},{x:W*0.72,y:140,s:0.75,v:13}],
+    sheep:{x:W*0.6,dir:1,t:0},
+    scaredAll:false};
+  document.getElementById('winOv').style.display='none';
+}
+
+/* ================= 提示 ================= */
+let warnTimer=null,tipTimer=null;
+function banner(t,ms){
+  const w=document.getElementById('warn');
+  document.getElementById('warnTxt').textContent=t;
+  w.classList.add('show');
+  clearTimeout(warnTimer);warnTimer=setTimeout(()=>w.classList.remove('show'),ms||2600);
+}
+function tip(t){
+  const e=document.getElementById('tip');
+  document.getElementById('tipTxt').textContent=t;
+  e.classList.add('show');
+  clearTimeout(tipTimer);tipTimer=setTimeout(()=>e.classList.remove('show'),2200);
+}
+
+/* ================= 输入 ================= */
+const inp={l:false,r:false};
+function tryJump(){const c=G.ch;if(G.phase==='win')return;if(c.y<=0.5){c.vy=800;sfxJump();}}
+function tryLay(){
+  if(!G||G.phase!=='play')return;
+  const c=G.ch;
+  if(Math.abs(c.x-nestX)>130){tip('走到鸡窝边再按 ⬇ 下蛋');return;}
+  if(G.layCd>0)return;
+  G.layCd=1.1;c.squat=0.42;
+  const i=G.eggs.length;
+  const offs=[[0,0],[-32,-4],[32,-4],[-16,-20],[18,-20],[-50,4],[50,6],[-2,-36],[-34,-30],[34,-32],[0,-52],[-20,-48]];
+  const o=offs[i%offs.length];
+  G.eggs.push({x:o[0],y:o[1]});
+  G.laid++;totalLaid++;
+  sfxLay();
+  if(G.eggs.length>=WIN_EGGS){G.phase='gohome';banner('🎉 10 个蛋齐了！快回小屋 🏠',3500);sfxWin();}
+}
+function bindHold(el,prop){
+  const on=e=>{e.preventDefault();inp[prop]=true;};
+  const off=e=>{e.preventDefault();inp[prop]=false;};
+  el.addEventListener('touchstart',on,{passive:false});
+  el.addEventListener('touchend',off);el.addEventListener('touchcancel',off);
+  el.addEventListener('mousedown',on);el.addEventListener('mouseup',off);el.addEventListener('mouseleave',off);
+}
+bindHold(document.getElementById('bL'),'l');
+bindHold(document.getElementById('bR'),'r');
+document.getElementById('bJ').addEventListener('touchstart',e=>{e.preventDefault();tryJump();},{passive:false});
+document.getElementById('bJ').addEventListener('mousedown',e=>{e.preventDefault();tryJump();});
+document.getElementById('bE').addEventListener('touchstart',e=>{e.preventDefault();tryLay();},{passive:false});
+document.getElementById('bE').addEventListener('mousedown',e=>{e.preventDefault();tryLay();});
+// 滑动
+let tsX=0,tsY=0,tsT=0;
+cv.addEventListener('touchstart',e=>{const t=e.changedTouches[0];tsX=t.clientX;tsY=t.clientY;tsT=Date.now();},{passive:true});
+cv.addEventListener('touchend',e=>{
+  const t=e.changedTouches[0],dx=t.clientX-tsX,dy=t.clientY-tsY;
+  const adx=Math.abs(dx),ady=Math.abs(dy);
+  if(Math.max(adx,ady)<12){tryJump();return;} // 轻点=跳
+  if(adx>ady){ // 左右滑=移动一小步
+    const c=G.ch;c.face=dx>0?1:-1;c.x=Math.max(34,Math.min(W-34,c.x+dx*0.6));c.walk+=2;
+  }else if(dy>24){tryLay();}
+  else if(dy<-24){tryJump();}
+},{passive:true});
+// 键盘（方便电脑上测试）
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')inp.l=true;
+  if(e.key==='ArrowRight'||e.key==='d')inp.r=true;
+  if(e.key==='ArrowUp'||e.key==='w'||e.key===' '){e.preventDefault();tryJump();}
+  if(e.key==='ArrowDown'||e.key==='s'){e.preventDefault();tryLay();}
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')inp.l=false;
+  if(e.key==='ArrowRight'||e.key==='d')inp.r=false;
+});
+
+/* ================= 逻辑 ================= */
+function spawnThief(){
+  const fromLeft=Math.random()<0.5;
+  G.thieves.push({x:fromLeft?-50:W+50,state:'in',t:0,walk:Math.random()*6,carry:false,dir:fromLeft?1:-1});
+  banner('🥷 小偷来了！快回去护蛋！');sfxAlarm();
+}
+function spawnWorm(){
+  const x=90+Math.random()*Math.max(100,(W-180));
+  G.wormItems.push({x:x,t:7,ph:Math.random()*6});
+  tip('🐛 小虫子出现了！跳起来吃掉它');
+}
+function updChicken(dt){
+  const c=G.ch;
+  let mv=0;if(inp.l)mv-=1;if(inp.r)mv+=1;
+  c.moving=mv!==0;if(mv!==0)c.face=mv;
+  c.x+=mv*280*dt;c.x=Math.max(34,Math.min(W-34,c.x));
+  if(c.moving)c.walk+=dt*11;
+  if(c.y>0||c.vy>0){c.vy-=2400*dt;c.y+=c.vy*dt;if(c.y<=0){c.y=0;c.vy=0;}}
+  c.squat=Math.max(0,c.squat-dt);
+  G.layCd=Math.max(0,G.layCd-dt);
+}
+function updThieves(dt){
+  const c=G.ch;
+  for(const th of G.thieves){
+    th.walk+=dt*9;
+    const dx=c.x-th.x,adx=Math.abs(dx);
+    if(G.phase==='gohome'){th.state='scared';}
+    if(th.state==='in'){
+      const d=nestX-th.x;th.dir=d>0?1:-1;th.x+=th.dir*58*dt;
+      if(Math.abs(d)<48){th.state='steal';th.t=0;}
+      if(adx<SCARE_R)th.state='scared';
+    }else if(th.state==='steal'){
+      th.t+=dt;
+      if(adx<SCARE_R){th.state='scared';banner('😤 小偷被吓跑了！');}
+      else if(th.t>=STEAL_TIME){
+        if(G.eggs.length>0){G.eggs.pop();G.stolen++;th.carry=true;banner('😢 被偷走了一个蛋！再下一个补上');}
+        th.state='out';
+      }
+    }else{ // scared / out：拼命逃跑
+      th.dir=dx>0?-1:1;th.x+=th.dir*175*dt;
+    }
+  }
+  G.thieves=G.thieves.filter(th=>th.x>-90&&th.x<W+90);
+}
+function updWorms(dt){
+  const c=G.ch;
+  for(const w of G.wormItems){
+    w.t-=dt;w.ph+=dt*6;
+    if(Math.abs(c.x-w.x)<52&&c.y<70){w.t=0;G.wormsEaten++;sfxEat();banner('😋 吃到小虫子！+1 ⭐',1500);}
+  }
+  G.wormItems=G.wormItems.filter(w=>w.t>0);
+}
+function update(dt){
+  G.time+=dt;
+  updChicken(dt);
+  // 小偷日程：60秒和74秒各来一个，之后每 ~34 秒来一个
+  while(G.thiefAt.length&&G.time>=G.thiefAt[0]){G.thiefAt.shift();if(G.phase==='play')spawnThief();}
+  if(!G.thiefAt.length){G.thiefGap-=dt;if(G.thiefGap<=0){if(G.phase==='play')spawnThief();G.thiefGap=30+Math.random()*12;}}
+  // 小虫子：50秒第一只，之后每 ~40 秒
+  while(G.wormAt.length&&G.time>=G.wormAt[0]){G.wormAt.shift();spawnWorm();}
+  if(!G.wormAt.length){G.wormGap-=dt;if(G.wormGap<=0){spawnWorm();G.wormGap=38+Math.random()*10;}}
+  updThieves(dt);
+  updWorms(dt);
+  // 云和羊
+  for(const cl of G.clouds){cl.x+=cl.v*dt;if(cl.x>W+120)cl.x=-120;}
+  const sh=G.sheep;sh.t+=dt;sh.x+=sh.dir*14*dt;
+  if(sh.x>W*0.42&&sh.dir>0)sh.dir=-1;
+  if(sh.x<W*0.30&&sh.dir<0)sh.dir=1;
+  // 回家过关
+  if(G.phase==='gohome'&&Math.abs(G.ch.x-houseX)<58){
+    G.phase='win';
+    const mm=Math.floor(G.time/60),ss=Math.floor(G.time%60);
+    document.getElementById('winStats').innerHTML=
+      '🥚 下了 <b>'+G.laid+'</b> 个蛋 · 被偷 <b>'+G.stolen+'</b> 个<br>'+
+      '⭐ 吃到 <b>'+G.wormsEaten+'</b> 条小虫子<br>'+
+      '⏱ 用时 '+mm+'分'+ss+'秒 · 累计下蛋 <b>'+totalLaid+'</b>/100';
+    document.getElementById('winOv').style.display='flex';
+    sfxWin();
+  }
+}
+
+/* ================= 画画 ================= */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawSun(){
+  ctx.save();ctx.translate(W-70,66);
+  ctx.strokeStyle='#fdd835';ctx.lineWidth=7;ctx.lineCap='round';
+  for(let i=0;i<8;i++){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*30,Math.sin(a)*30);ctx.lineTo(Math.cos(a)*42,Math.sin(a)*42);ctx.stroke();}
+  ctx.fillStyle='#ffeb3b';ctx.beginPath();ctx.arc(0,0,26,0,7);ctx.fill();
+  ctx.restore();
+}
+function drawClouds(){
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  for(const cl of G.clouds){
+    ctx.save();ctx.translate(cl.x,cl.y);ctx.scale(cl.s,cl.s);
+    ctx.beginPath();ctx.arc(0,0,22,0,7);ctx.arc(24,-8,26,0,7);ctx.arc(50,0,20,0,7);ctx.fill();
+    ctx.restore();
+  }
+}
+function drawGround(){
+  const g=ctx.createLinearGradient(0,GY,0,H);
+  g.addColorStop(0,'#a5d6a7');g.addColorStop(1,'#7cb342');
+  ctx.fillStyle=g;ctx.fillRect(0,GY,W,H-GY);
+  ctx.strokeStyle='#558b2f';ctx.lineWidth=3;
+  for(let x=20;x<W;x+=46){
+    ctx.beginPath();ctx.moveTo(x,GY+34);ctx.quadraticCurveTo(x+3,GY+18,x+7,GY+10);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+12,GY+34);ctx.quadraticCurveTo(x+12,GY+20,x+9,GY+12);ctx.stroke();
+  }
+}
+function drawTree(){
+  const x=treeX,y=GY;
+  ctx.fillStyle='#6d4c41';ctx.fillRect(x-9,y-120,18,120);
+  ctx.strokeStyle='#43a047';ctx.lineWidth=5;ctx.lineCap='round';
+  for(let i=0;i<26;i++){
+    const a=(i*2.4),r2=34+((i*53)%30);
+    ctx.beginPath();ctx.moveTo(x,y-150);
+    ctx.quadraticCurveTo(x+Math.cos(a)*r2,y-150+Math.sin(a)*r2*0.6,x+Math.cos(a)*r2*1.4,y-150+Math.sin(a)*r2);
+    ctx.stroke();
+  }
+  ctx.fillStyle='#e53935';
+  const ap=[[-40,-160],[30,-175],[-8,-130],[44,-140],[-52,-190]];
+  for(const p of ap){ctx.beginPath();ctx.arc(x+p[0],y+p[1],10,0,7);ctx.fill();}
+}
+function drawHouse(){
+  const x=houseX,y=GY,w=104,h=92;
+  const bounce=G.phase==='gohome'?Math.abs(Math.sin(G.time*5))*10:0;
+  if(G.phase==='gohome'){
+    ctx.fillStyle='#e65100';ctx.font='bold 26px sans-serif';ctx.textAlign='center';
+    ctx.fillText('⬇ 回家!',x,y-h-66-bounce);
+  }
+  ctx.fillStyle='#a1887f';ctx.fillRect(x-w/2,y-h,w,h);
+  ctx.fillStyle='#5d4037';ctx.beginPath();
+  ctx.moveTo(x-w/2-12,y-h);ctx.lineTo(x,y-h-52);ctx.lineTo(x+w/2+12,y-h);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#4e342e';rr(x-17,y-58,34,58,14);ctx.fill(); // 门
+  ctx.fillStyle='#ffecb3';ctx.fillRect(x-30,y-h+18,22,20); // 窗
+  ctx.strokeStyle='#5d4037';ctx.lineWidth=3;ctx.strokeRect(x-30,y-h+18,22,20);
+  ctx.fillStyle='#8d6e63';ctx.font='bold 15px sans-serif';ctx.textAlign='center';
+  ctx.fillText('小鸡的小屋',x,y+24);
+}
+function drawNest(){
+  const x=nestX,y=GY+8;
+  ctx.strokeStyle='#43a047';ctx.lineWidth=4;ctx.lineCap='round';
+  for(let i=0;i<14;i++){
+    const gx=x-72+i*11;
+    ctx.beginPath();ctx.moveTo(gx,y+8);ctx.quadraticCurveTo(gx+3,y-12,gx+7,y-20-((i*37)%12));ctx.stroke();
+  }
+  ctx.fillStyle='#8d5a2b';ctx.beginPath();ctx.ellipse(x,y,64,20,0,0,7);ctx.fill();
+  ctx.fillStyle='#c89b62';ctx.beginPath();ctx.ellipse(x,y-7,54,15,0,0,7);ctx.fill();
+  ctx.strokeStyle='#6d4c41';ctx.lineWidth=3;
+  for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(x+i*22-8,y+10);ctx.quadraticCurveTo(x+i*22,y-16,x+i*22+8,y+8);ctx.stroke();}
+  for(const e of G.eggs){
+    ctx.fillStyle='#fff';ctx.strokeStyle='#d7ccc8';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(x+e.x,y-18+e.y,11,14,0,0,7);ctx.fill();ctx.stroke();
+  }
+  ctx.fillStyle='#5d4037';ctx.font='bold 15px sans-serif';ctx.textAlign='center';
+  ctx.fillText('鸡窝',x,y+44);
+}
+function drawSheep(){
+  const s=G.sheep,x=s.x,y=GY-6;
+  ctx.save();ctx.translate(x,y);ctx.scale(s.dir,1);
+  ctx.strokeStyle='#37474f';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(-12,-22);ctx.lineTo(-12,0);ctx.moveTo(12,-22);ctx.lineTo(12,0);ctx.stroke();
+  ctx.fillStyle='#fafafa';
+  for(const p of [[-16,-34],[-4,-40],[8,-40],[18,-32],[0,-30]]){ctx.beginPath();ctx.arc(p[0],p[1],13,0,7);ctx.fill();}
+  ctx.fillStyle='#ffcc9e';ctx.beginPath();ctx.arc(26,-34,10,0,7);ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(29,-36,2,0,7);ctx.fill();
+  ctx.restore();
+}
+function drawWorms(){
+  for(const w of G.wormItems){
+    const x=w.x,y=GY-4,a=Math.min(1,w.t/1.5);
+    ctx.save();ctx.globalAlpha=a;ctx.translate(x,y);
+    ctx.strokeStyle='#f06292';ctx.lineWidth=9;ctx.lineCap='round';
+    ctx.beginPath();
+    for(let i=0;i<=4;i++){const px=-24+i*12,py=Math.sin(w.ph+i)*6;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+    ctx.stroke();
+    ctx.fillStyle='#222';ctx.beginPath();ctx.arc(26,Math.sin(w.ph+4)*6,2.5,0,7);ctx.fill();
+    ctx.restore();
+  }
+}
+function drawThieves(){
+  for(const th of G.thieves){
+    const x=th.x,y=GY;
+    ctx.save();ctx.translate(x,y);ctx.scale(th.dir,1);
+    const lp=Math.sin(th.walk)*7;
+    ctx.strokeStyle='#37474f';ctx.lineWidth=7;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(-6,-28);ctx.lineTo(-6+lp,0);ctx.moveTo(6,-28);ctx.lineTo(6-lp,0);ctx.stroke();
+    ctx.fillStyle='#546e7a';rr(-15,-62,30,36,9);ctx.fill();
+    ctx.fillStyle='#ffcc9e';ctx.beginPath();ctx.arc(0,-72,13,0,7);ctx.fill();
+    ctx.fillStyle='#263238';ctx.fillRect(-13,-77,26,9); // 眼罩
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(-6,-72,2.6,0,7);ctx.arc(6,-72,2.6,0,7);ctx.fill();
+    if(th.carry){ctx.fillStyle='#a1887f';ctx.beginPath();ctx.arc(-22,-44,11,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(-22,-48,7,9,0,0,7);ctx.fill();}
+    ctx.restore();
+    if(th.state==='steal'){
+      ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=7;
+      ctx.beginPath();ctx.arc(x,GY-104,17,0,7);ctx.stroke();
+      ctx.strokeStyle='#ef5350';
+      ctx.beginPath();ctx.arc(x,GY-104,17,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,th.t/STEAL_TIME));ctx.stroke();
+    }
+  }
+}
+function drawChicken(){
+  const c=G.ch,x=c.x,base=GY-c.y;
+  ctx.save();ctx.translate(x,base);ctx.scale(c.face,1);
+  const sq=c.squat>0?1-c.squat*0.45:1;
+  ctx.scale(1,sq);
+  const lp=c.moving?Math.sin(c.walk)*7:0;
+  ctx.strokeStyle='#ef9a3f';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-8,-18);ctx.lineTo(-8+lp,0);ctx.moveTo(8,-18);ctx.lineTo(8-lp,0);ctx.stroke();
+  ctx.fillStyle='#ffffff';ctx.strokeStyle='#cfcfcf';ctx.lineWidth=3;
+  ctx.beginPath();ctx.ellipse(0,-40,30,24,0,0,7);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#f7d154';ctx.beginPath();ctx.ellipse(-5,-38,16,10,-0.3,0,7);ctx.fill();
+  ctx.strokeStyle='#ef9a3f';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(-28,-44);ctx.quadraticCurveTo(-40,-52,-36,-62);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(22,-58,16,0,7);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#ef5350';
+  for(const ox of [-7,1,9]){ctx.beginPath();ctx.arc(21+ox,-72,7,0,7);ctx.fill();}
+  ctx.fillStyle='#ffb300';ctx.beginPath();ctx.moveTo(36,-60);ctx.lineTo(51,-53);ctx.lineTo(36,-46);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(27,-60,3.4,0,7);ctx.fill();
+  ctx.restore();
+}
+function draw(){
+  const sky=ctx.createLinearGradient(0,0,0,GY);
+  sky.addColorStop(0,'#b3e5fc');sky.addColorStop(1,'#e1f5fe');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,GY+2);
+  drawSun();drawClouds();drawGround();
+  drawTree();drawHouse();drawNest();drawSheep();drawWorms();drawThieves();drawChicken();
+}
+
+/* ================= HUD ================= */
+function fmt(t){return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');}
+function hud(){
+  document.getElementById('hEgg').textContent='🥚 '+G.eggs.length+'/'+WIN_EGGS;
+  document.getElementById('hTime').textContent='⏱ '+fmt(G.time);
+  document.getElementById('hWorm').textContent='⭐ '+G.wormsEaten;
+  let th='🥷 --';
+  if(G.thieves.length)th='🥷 '+G.thieves.length+'!';
+  else if(G.phase==='play'&&G.thiefAt.length)th='🥷 '+Math.max(0,Math.ceil(G.thiefAt[0]-G.time))+'s';
+  document.getElementById('hThief').textContent=th;
+}
+
+/* ================= 主循环 ================= */
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;
+  if(G&&G.phase!=='ready'&&G.phase!=='win')update(dt);
+  if(G){draw();hud();}
+}
+document.getElementById('startBtn').addEventListener('click',()=>{
+  document.getElementById('startOv').style.display='none';
+  reset();G.phase='play';
+  banner('到鸡窝边按 🥚 下蛋吧！',2600);
+});
+document.getElementById('againBtn').addEventListener('click',()=>{reset();});
+resize();reset();G.phase='ready';
+requestAnimationFrame(loop);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
